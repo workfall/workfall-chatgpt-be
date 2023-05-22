@@ -1,0 +1,65 @@
+version: "3.9"
+
+services:
+  frontend:
+    image: ${DOCKER_HUB_USERNAME}/frontend:latest
+    container_name: frontend # must match the name of the container in the nginx config
+    ports:
+      - "8080:8080" # this guy needs both ports to be same. -8080:80 will not work
+    restart: always
+    environment:
+      - DOCKER_HUB_USERNAME=${DOCKER_HUB_USERNAME}
+    depends_on:
+      - api
+    networks:
+      - app-network
+
+  api:
+    image: ${DOCKER_HUB_USERNAME}/api:latest
+    container_name: api
+    restart: always
+    depends_on:
+      - mongodb
+    ports:
+      - "3000:3000"
+    environment:
+      - DB_HOST=${DB_HOST}
+      - DOCKER_HUB_USERNAME=${DOCKER_HUB_USERNAME}
+    volumes:
+      - ./uploads:/usr/src/app/uploads
+    networks:
+      - app-network
+
+  mongodb:
+    image: mongo:latest
+    container_name: mongodb
+    restart: always
+    volumes:
+      - mongodb-data:/data/db
+    ports:
+      - "27017:27017"
+    networks:
+      - app-network
+
+  gateway:
+    image: nginx:latest
+    container_name: gateway
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - frontend
+      - api
+      - mongodb
+    volumes:
+      - ./certs:/etc/nginx/certs
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
+    networks:
+      - app-network
+
+volumes:
+  mongodb-data: {}
+
+networks:
+  app-network:
+    driver: bridge
